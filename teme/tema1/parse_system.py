@@ -1,205 +1,185 @@
-import os
 import re
 import pathlib
+from typing import List, Tuple, Optional
 
-class EquationsSystemParser:
-    def __init__(self):
-        self.equations = []
-        self.matrix_A = []
-        self.vector_B = []
-        self.variables_X = []
 
-    def parse(self, file_path: str="input_file.txt"):
-        cwd = os.getcwd()
-        file_path = os.path.join(cwd, file_path)
-        with open(file_path, 'r') as file:
-            for line in file:
-                equation = line.strip()
-                self.equations.append(equation)
+def load_system(file_path: pathlib.Path = pathlib.Path("input.txt")) -> Tuple[List[List[float]], List[float]]:
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist.")
 
-    def get_equations(self):
-        return self.equations
+    equations = []
+    matrix_A = []
+    vector_B = []
+    variables_X = []
 
-    def parse_equations(self):
-        pattern = r'([+-]?\s*\d*)([a-z])'
+    with open(file_path, 'r') as file:
+        for line in file:
+            equation = line.strip()
+            equations.append(equation)
 
-        for equation in self.equations:
-            equation = equation.replace(" ", "")
-            equation = equation.split("=")
-            self.vector_B.append(int(equation[1]))
+    pattern = r'([+-]?\s*\d*)([a-z])'
 
-            row_A = []
-            equation = equation[0]
-            matches = re.findall(pattern, equation)
-            for match in matches:
-                coeff, var = match
-                if coeff.strip() in ('', '+'):
-                    coeff = 1
-                elif coeff.strip() == '-':
-                    coeff = -1
-                else:
-                    coeff = int(coeff.strip())
+    for equation in equations:
+        equation = equation.replace(" ", "")
+        equation = equation.split("=")
+        vector_B.append(float(equation[1]))
 
-                if var not in self.variables_X:
-                    self.variables_X.append(var)
+        row_A = []
+        equation = equation[0]
+        matches = re.findall(pattern, equation)
+        for match in matches:
+            coeff, var = match
+            if coeff.strip() in ('', '+'):
+                coeff = 1
+            elif coeff.strip() == '-':
+                coeff = -1
+            else:
+                coeff = float(coeff.strip())
 
-                row_A.append(coeff)
+            if var not in variables_X:
+                variables_X.append(var)
 
-            self.matrix_A.append(row_A)
+            row_A.append(coeff)
 
-    def get_matrix_A(self):
-        return self.matrix_A
+        matrix_A.append(row_A)
 
-    def get_vector_B(self):
-        return self.vector_B
+    return matrix_A, vector_B
 
-    def get_variables_X(self):
-        return self.variables_X
 
-    def get_determinant(self, matrix=None):
-        if matrix is None:
-            matrix = self.matrix_A
+def determinant(matrix: List[List[float]]) -> float:
+    if len(matrix) == 3:
+        a, b, c = matrix[0]
+        d, e, f = matrix[1]
+        g, h, i = matrix[2]
+        return (a * e * i) + (b * f * g) + (c * d * h) - (c * e * g) - (b * d * i) - (a * f * h)
 
-        if len(matrix) == 3:
-            a, b, c = matrix[0]
-            d, e, f = matrix[1]
-            g, h, i = matrix[2]
-            return (a * e * i) + (b * f * g) + (c * d * h) - (c * e * g) - (b * d * i) - (a * f * h)
+    elif len(matrix) == 2:
+        a, b = matrix[0]
+        c, d = matrix[1]
+        return a * d - b * c
 
-        elif len(matrix) == 2:
-            a, b = matrix[0]
-            c, d = matrix[1]
-            return a * d - b * c
+    return 0.0
 
+
+def trace(matrix: List[List[float]]) -> float:
+    trace_sum = 0
+    for i in range(len(matrix)):
+        trace_sum += matrix[i][i]
+
+    return trace_sum
+
+
+def norm(vector: List[float]) -> float:
+    norm_value = 0
+    for i in range(len(vector)):
+        norm_value += vector[i] ** 2
+
+    return norm_value ** 0.5
+
+
+def transpose(matrix: List[List[float]]):
+    transpose_matrix = []
+    for i in range(len(matrix)):
+        row = []
+        for j in range(len(matrix)):
+            row.append(matrix[j][i])
+        transpose_matrix.append(row)
+
+    return transpose_matrix
+
+
+def multiply(matrix: List[List[float]], vector: List[float]) -> List[float]:
+    result = []
+    for i in range(len(matrix)):
+        row = matrix[i]
+        summ = 0
+        for j in range(len(row)):
+            summ += row[j] * vector[j]
+        result.append(summ)
+
+    return result
+
+def solve_cramer(matrix: List[List[float]], vector: List[float]) -> Optional[List[float]]:
+    determinant_value = determinant(matrix=matrix)
+    if determinant_value == 0:
         return None
 
-    def get_trace(self):
-        trace = 0
-        for i in range(len(self.variables_X)):
-            trace += self.matrix_A[i][i]
+    solutions = []
+    for i in range(len(matrix)):
+        matrix_A_copy = [row[:] for row in matrix]
+        for j in range(len(matrix)):
+            matrix_A_copy[j][i] = vector[j]
 
-        return trace
+        determinant_i = determinant(matrix=matrix_A_copy)
+        solutions.append(determinant_i / determinant_value)
 
-    def get_vector_norm(self):
-        norm = 0
-        for i in range(len(self.variables_X)):
-            norm += self.vector_B[i] ** 2
+    return solutions
 
-        return norm ** 0.5
+def cofactor(matrix: List[List[float]]) -> List[List[float]]:
+    cofactor_matrix = []
+    for i in range(len(matrix)):
+        row = []
+        for j in range(len(matrix)):
+            minor_matrix = [row[:] for row in matrix]
+            minor_matrix.pop(i)
+            for k in range(len(minor_matrix)):
+                minor_matrix[k].pop(j)
 
-    def get_transpose(self, matrix=None):
-        if matrix is None:
-            matrix = self.matrix_A
+            minor_determinant = determinant(matrix=minor_matrix)
+            row.append((-1) ** (i + j) * minor_determinant)
 
-        transpose = []
-        for i in range(len(matrix)):
-            row = []
-            for j in range(len(matrix)):
-                row.append(matrix[j][i])
-            transpose.append(row)
+        cofactor_matrix.append(row)
 
-        return transpose
+    return cofactor_matrix
 
-    def matrix_vector_multiplication(self, matrix, vector):
-        result = []
-        for i in range(len(matrix)):
-            row = matrix[i]
-            sum = 0
-            for j in range(len(row)):
-                sum += row[j] * vector[j]
-            result.append(sum)
+def adjoint(matrix: List[List[float]]) -> List[List[float]]:
+    cofactor_matrix = cofactor(matrix=matrix)
+    adjugate_matrix = transpose(matrix=cofactor_matrix)
+    return adjugate_matrix
 
-        return result
+def get_inverse_matrix(matrix: List[List[float]]) -> Optional[List[List[float]]]:
+    determinant_value = determinant(matrix=matrix)
+    if determinant_value == 0:
+        return None
 
-    def solve_system_cramer(self):
-        determinant = self.get_determinant()
-        if determinant == 0:
-            return None
+    adjugate_matrix = adjoint(matrix=matrix)
+    inverse_matrix = [[element / determinant_value for element in row] for row in adjugate_matrix]
+    return inverse_matrix
 
-        solutions = []
-        for i in range(len(self.variables_X)):
-            matrix_A_copy = [row[:] for row in self.matrix_A]
-            for j in range(len(self.variables_X)):
-                matrix_A_copy[j][i] = self.vector_B[j]
+def solve(matrix: List[List[float]], vector: List[float]) -> Optional[List[float]]:
+    inverse_matrix = get_inverse_matrix(matrix=matrix)
+    if inverse_matrix is None:
+        return None
 
-            determinant_i = self.get_determinant(matrix=matrix_A_copy)
-            solutions.append(determinant_i / determinant)
-
-        return solutions
-
-    def get_cofactor_matrix(self, matrix):
-        cofactor_matrix = []
-        for i in range(len(matrix)):
-            row = []
-            for j in range(len(matrix)):
-                minor_matrix = [row[:] for row in matrix]
-                minor_matrix.pop(i)
-                for k in range(len(minor_matrix)):
-                    minor_matrix[k].pop(j)
-
-                minor_determinant = self.get_determinant(matrix=minor_matrix)
-                row.append((-1) ** (i + j) * minor_determinant)
-
-            cofactor_matrix.append(row)
-
-        return cofactor_matrix
-
-    def get_adjugate_matrix(self, matrix):
-        cofactor_matrix = self.get_cofactor_matrix(matrix)
-        adjugate_matrix = self.get_transpose(cofactor_matrix)
-        return adjugate_matrix
-
-    def get_inverse_matrix(self, matrix):
-        determinant = self.get_determinant(matrix)
-        if determinant == 0:
-            return None
-
-        adjugate_matrix = self.get_adjugate_matrix(matrix)
-        inverse_matrix = [[element / determinant for element in row] for row in adjugate_matrix]
-        return inverse_matrix
-
-    def solve_system_using_inversion(self):
-        inverse_matrix = self.get_inverse_matrix(self.matrix_A)
-        if inverse_matrix is None:
-            return None
-
-        solutions = self.matrix_vector_multiplication(inverse_matrix, self.vector_B)
-        return solutions
+    solutions = multiply(matrix=inverse_matrix, vector=vector)
+    return solutions
 
 
 if __name__ == "__main__":
-    parser = EquationsSystemParser()
-    parser.parse()
-    parser.parse_equations()
-    print(f"Matrix A: \n{parser.get_matrix_A()}")
-    print(f"Vector B: {parser.get_vector_B()}")
-    print(f"Variables: {parser.get_variables_X()}")
+    A, B = load_system(pathlib.Path("input.txt"))
 
-    determinant = parser.get_determinant()
-    if determinant is not None:
-        print(f"Determinant: {determinant}")
+    print(f"Matrix A: \n{A}")
+    print(f"Vector B: {B}")
 
-    trace = parser.get_trace()
-    print(f"Trace: {trace}")
+    print(f"Determinant: {determinant(matrix=A)}")
 
-    norm = parser.get_vector_norm()
-    print(f"Vector norm: {norm}")
+    print(f"Trace: {trace(matrix=A)}")
 
-    transpose = parser.get_transpose()
-    print(f"Transpose: \n{transpose}")
+    print(f"Vector norm: {norm(vector=B)}")
 
-    result = parser.matrix_vector_multiplication(parser.get_matrix_A(), parser.get_vector_B())
-    print(f"A multiplied by B: {result}")
+    print(f"Transpose: \n{transpose(matrix=A)}")
 
-    solutions = parser.solve_system_cramer()
-    if solutions is not None:
-        print(f"Solution for the system using Cramer Rule: {solutions}")
+    print(f"A multiplied by B: {multiply(matrix=A, vector=B)}")
+
+    cramer_solutions = solve_cramer(matrix=A, vector=B)
+    if cramer_solutions is not None:
+        print(f"Solution for the system using Cramer Rule: {cramer_solutions}")
     else:
         print("The system has no solution or infinite solutions.")
 
-    solutions = parser.solve_system_using_inversion()
-    if solutions is not None:
-        print(f"Solution for the system using inversion: {solutions}")
+    inversion_solutions = solve(matrix=A, vector=B)
+    if inversion_solutions is not None:
+        print(f"Solution for the system using inversion: {inversion_solutions}")
     else:
         print("The system has no solution or infinite solutions.")
 
