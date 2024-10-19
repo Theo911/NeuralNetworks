@@ -1,112 +1,117 @@
-from functools import wraps
-import time
 import numpy as np
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score
-from typing import Tuple
-
-def timeit(func):
-    @wraps(func)
-    def timeit_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        print(f'Function {func.__name__}{args} {kwargs} Took {total_time:.4f} seconds')
-        return result
-    return timeit_wrapper
+from load_mnist_dataset import download_mnist
 
 
+def load_mnist_dataset():
+    """Load the MNIST dataset."""
 
-# ------------------------------------------------------
-@timeit
-def tp_fp_fn_tn_sklearn(gt: np.ndarray, pred: np.ndarray) -> Tuple[int, ...]:
-    tn, fp, fn, tp = confusion_matrix(gt, pred).ravel()
-    return tp, fp, fn, tn
+    train_X, train_Y = download_mnist(is_train=True)
+    test_X, test_Y = download_mnist(is_train=False)
+    return train_X, train_Y, test_X, test_Y
+
+def normalize_data(train_X, test_X):
+    """Normalize the data by dividing it by 255 such that the values are in the range [0, 1]."""
+
+    train_X = np.array(train_X) / 255
+    test_X = np.array(test_X) / 255
+    return train_X, test_X
+
+def one_hot_encode(labels, num_classes=10):
+    one_hot_labels = np.zeros((len(labels), num_classes))
+    for idx, label in enumerate(labels):
+        one_hot_labels[idx][label] = 1
+    return one_hot_labels
+
+def create_batches(X, Y, batch_size=100):
+    """Split the training data and training labels into batches of 100 elements"""
+
+    num_samples = X.shape[0]        # Number of samples in the dataset
+    for i in range(0, num_samples, batch_size):
+        X_batch = X[i:i + batch_size]
+        Y_batch = Y[i:i + batch_size]
+        yield X_batch, Y_batch
+
+def softmax(z):
+    z_max = np.max(z, axis=1, keepdims=True)        # Maximum value in each row
+    z_stable = z - z_max        # Subtract the maximum value to avoid overflow
+
+    exp_z = np.exp(z_stable)    # this ensures all values are positive
+
+    sum_exp_z = np.sum(exp_z, axis=1, keepdims=True)        # Sum of the exponentials
+
+    probabilities = exp_z / sum_exp_z   # Probabilities of each class
+
+    return probabilities
+
+def forward_propagation(X_batch, W, b):
+    """Forward pass of the neural network.
+    Compute the logits (pre-activation) by multiplying input by weights and adding bias"""
+
+    z = np.dot(X_batch, W) + b
+    output = softmax(z)
+    return output
+
+def update_weights_and_bias(X_batch, y_true, y_pred, W, b, learning_rate):
+    # the gradient of the cross-entropy loss w.r.t the predictions
+    error = y_true - y_pred  # (Target - y) - how much we need to adjust the prediction to make it closer to the true class.
+
+    # Update weights using the formula: W = W + μ * (Target - y) * X^T
+    # X_batch.T shape: (784, 100), error shape: (100, 10), W shape: (784, 10)
+    W += learning_rate * np.dot(X_batch.T, error)
+
+    # Update biases using the formula: b = b + μ * (Target - y)
+    b += learning_rate * np.sum(error, axis=0)  # Sum across the batch
+
+    return W, b
 
 
-# --------------------- Exercise 1 ---------------------
-@timeit
-def tp_fp_fn_tn_numpy(gt: np.ndarray, pred: np.ndarray) -> Tuple[int, ...]:
-    """Exercise 1
-        Implement a method to retrieve the confusion matrix values using numpy operations.
-        Aim to make your method faster than the sklearn implementation.
-    """
+def compute_accuracy(X_test, Y_test, W, b):
+    """Compute accuracy on the test set."""
 
-    tp = int(np.sum(np.logical_and(gt == 1, pred == 1)))
-    fp = int(np.sum(np.logical_and(gt == 0, pred == 1)))
-    fn = int(np.sum(np.logical_and(gt == 1, pred == 0)))
-    tn = int(np.sum(np.logical_and(gt == 0, pred == 0)))
+    y_pred = forward_propagation(X_test, W, b)
 
-    return tp, fp, fn, tn
+    # Convert predicted probabilities to class labels (argmax to get class index)
+    predicted_labels = np.argmax(y_pred, axis=1)
 
+    # Convert true labels (one-hot encoded) to class labels
+    true_labels = np.argmax(Y_test, axis=1)
 
-# ------------------------------------------------------
-@timeit
-def accuracy_sklearn(gt: np.ndarray, pred: np.ndarray) -> float:
-    return accuracy_score(gt, pred)
+    # Calculate accuracy (percentage of correct predictions)
+    accuracy = np.mean(predicted_labels == true_labels) * 100
 
-
-# --------------------- Exercise 2 ---------------------
-@timeit
-def accuracy_numpy(gt: np.ndarray, pred: np.ndarray) -> float:
-    """Exercise 2
-        Implement a method to retrieve the calculate the accuracy using numpy operations.
-        Accuracy is the proportion of true results (both true positives and true negatives) among the total number of cases examined.
-    """
-    tp, fp, fn, tn = tp_fp_fn_tn_numpy(gt, pred)
-    accuracy = (tp + tn) / (tp + fp + fn + tn)
     return accuracy
 
+def main():
+    train_X, train_Y = download_mnist(True)
+    test_X, test_Y = download_mnist(False)
 
-# ------------------------------------------------------
-def f1_score_sklearn(gt: np.ndarray, pred: np.ndarray) -> float:
-    return f1_score(gt, pred)
+    train_X, test_X = normalize_data(train_X, test_X)
 
+    train_Y = one_hot_encode(train_Y)
+    test_Y = one_hot_encode(test_Y)
 
-# --------------------- Exercise 3 ---------------------
-# Implement a method to calculate the F1-Score using numpy operations.
-# Be careful at corner cases (divide by 0).
+    print(f"Train data shape: {train_X.shape}, Train labels shape: {train_Y.shape}")
+    print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
-def precision_numpy(gt: np.ndarray, pred: np.ndarray) -> float:
-    """Precision is a measure of how accurate a model’s positive predictions are."""
-    tp, fp, fn, tn = tp_fp_fn_tn_numpy(gt, pred)
-    precision = tp / (tp + fp) if tp + fp != 0 else 0
-    return precision
+    learning_rate = 0.01
+    num_epochs = 50
+    batch_size = 100
 
-def recall_numpy(gt: np.ndarray, pred: np.ndarray) -> float:
-    """ Recall is a measure of how many of the actual positives our model capture through labeling it as Positive."""
-    tp, fp, fn, tn = tp_fp_fn_tn_numpy(gt, pred)
-    recall = tp / (tp + fn) if tp + fn != 0 else 0
-    return recall
+    # Initialize weights and biases
+    W = np.random.randn(784, 10) * 0.01
+    b = np.zeros(10)
 
-def f1_score_numpy(gt: np.ndarray, pred: np.ndarray) -> float:
-    """The F1 score is the harmonic mean of precision and recall."""
-    precision = precision_numpy(gt, pred)
-    recall = recall_numpy(gt, pred)
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall != 0 else 0
-    return f1
+    for epoch in range(num_epochs):
+        for X_batch, Y_batch in create_batches(train_X, train_Y, batch_size):
+            y_pred = forward_propagation(X_batch, W, b)
 
+            # Update weights and biases using gradient descent
+            W, b = update_weights_and_bias(X_batch, Y_batch, y_pred, W, b, learning_rate)
 
-if __name__ == '__main__':
-    predicted = np.array([1, 1, 1, 0, 1, 0, 1, 1, 0, 0])
-    actual = np.array([1, 1, 1, 1, 0, 0, 1, 0, 0, 0])
+        print(f"Epoch {epoch + 1} completed.")
 
-    big_size = 500000
-    big_actual = np.repeat(actual, big_size)
-    big_predicted = np.repeat(predicted, big_size)
+    test_accuracy = compute_accuracy(test_X, test_Y, W, b)
+    print(f"Test Accuracy: {test_accuracy:.2f}%")
 
-    # Exercise 1
-    # rez_1 = tp_fp_fn_tn_sklearn(big_actual, big_predicted)
-    # rez_2 = tp_fp_fn_tn_numpy(big_actual, big_predicted)
-    # print(rez_1)
-    # print(rez_2)
-
-    # Exercise 2
-    # rez_1 = accuracy_sklearn(big_actual, big_predicted)
-    # rez_2 = accuracy_numpy(big_actual, big_predicted)
-    # assert np.isclose(rez_1, rez_2)
-
-    # Exercise 3
-    # rez_1 = f1_score_sklearn(big_actual, big_predicted)
-    # rez_2 = f1_score_numpy(big_actual, big_predicted)
-    # assert np.isclose(rez_1, rez_2)
+if __name__ == "__main__":
+    main()
