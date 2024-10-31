@@ -33,7 +33,7 @@ def create_batches(X, Y, batch_size=100):
 
 def softmax(z):
     z_max = np.max(z, axis=1, keepdims=True)        # Maximum value in each row
-    z_stable = z - z_max        # Subtract the maximum value to avoid overflow
+    z_stable = z - z_max        # to avoid overflow
 
     exp_z = np.exp(z_stable)    # this ensures all values are positive
 
@@ -45,18 +45,17 @@ def softmax(z):
 
 def forward_propagation(X_batch, W, b):
     """Forward pass of the neural network.
-    Compute the logits (pre-activation) by multiplying input by weights and adding bias"""
+    Compute z by multiplying input by weights and adding bias and then apply softmax to get the probabilities of each class."""
 
     z = np.dot(X_batch, W) + b
     output = softmax(z)
     return output
 
 def update_weights_and_bias(X_batch, y_true, y_pred, W, b, learning_rate):
-    # the gradient of the cross-entropy loss w.r.t the predictions
     error = y_true - y_pred  # (Target - y) - how much we need to adjust the prediction to make it closer to the true class.
 
     # Update weights using the formula: W = W + μ * (Target - y) * X^T
-    # X_batch.T shape: (784, 100), error shape: (100, 10), W shape: (784, 10)
+    # X_batch.T: (784, 100), error: (100, 10), W: (784, 10)
     W += learning_rate * np.dot(X_batch.T, error)
 
     # Update biases using the formula: b = b + μ * (Target - y)
@@ -69,12 +68,9 @@ def compute_accuracy(X_test, Y_test, W, b):
     """Compute accuracy on the test set."""
 
     y_pred = forward_propagation(X_test, W, b)
+    predicted_labels = np.argmax(y_pred, axis=1)        # Predicted labels
 
-    # Convert predicted probabilities to class labels (argmax to get class index)
-    predicted_labels = np.argmax(y_pred, axis=1)
-
-    # Convert true labels (one-hot encoded) to class labels
-    true_labels = np.argmax(Y_test, axis=1)
+    true_labels = np.argmax(Y_test, axis=1)     # True labels
 
     # Calculate accuracy (percentage of correct predictions)
     accuracy = np.mean(predicted_labels == true_labels) * 100
@@ -97,7 +93,6 @@ def main():
     num_epochs = 50
     batch_size = 100
 
-    # Initialize weights and biases
     W = np.random.randn(784, 10) * 0.01
     b = np.zeros(10)
 
