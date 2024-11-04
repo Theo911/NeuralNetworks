@@ -100,11 +100,18 @@ def update_weights_and_bias(layer_outputs, y_true, y_pred, W, b, learning_rate):
 
     return W, b
 
+def shuffle_data(X, Y):
+    """Shuffle the dataset while keeping features and labels aligned."""
+    indices = np.arange(X.shape[0])
+    np.random.shuffle(indices)
+    return X[indices], Y[indices]
 
-def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learning_rate):
+def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learning_rate, test_X, test_Y):
     W, b = initialize_parameters(layer_sizes)
 
     for epoch in range(num_epochs):
+        train_X, train_Y = shuffle_data(train_X, train_Y)
+
         for X_batch, Y_batch in create_batches(train_X, train_Y, batch_size):
             y_pred, layer_outputs = forward_propagation(X_batch, W, b)      # Forward pass
 
@@ -116,7 +123,10 @@ def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learnin
                 W[i] -= learning_rate * dW[i]
                 b[i] -= learning_rate * db[i]
 
-        print(f"Epoch {epoch + 1} completed.")
+        train_accuracy = compute_accuracy(train_X, train_Y, W, b)
+        validation_accuracy = compute_accuracy(test_X, test_Y, W, b)
+        print(f"Epoch {epoch + 1} completed. Training Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {validation_accuracy:.2f}%")
+
 
     return W, b
 
@@ -185,19 +195,21 @@ def main():
     print(f"Train data shape: {train_X.shape}, Train labels shape: {train_Y.shape}")
     print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
-    learning_rate = 0.0005
+    learning_rate = 0.001
     num_epochs = 50
     batch_size = 100
-    layer_sizes = [784, 32, 16, 10]
+    layer_sizes = [784, 100, 10]
 
     W, b = train_network(train_X=train_X, train_Y=train_Y, layer_sizes=layer_sizes,
-                         num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate)
+                        num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate,
+                        test_X=test_X, test_Y=test_Y
+                         )
 
     for i in range(len(W)):
         print(f"Weight shape: {W[i].shape}, Bias shape: {b[i].shape}")
 
-    test_accuracy = compute_accuracy(test_X, test_Y, W, b)
-    print(f"Test Accuracy: {test_accuracy:.2f}%")
+    # test_accuracy = compute_accuracy(test_X, test_Y, W, b)
+    # print(f"Test Accuracy: {test_accuracy:.2f}%")
 
 
 
