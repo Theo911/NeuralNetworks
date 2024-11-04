@@ -90,7 +90,7 @@ def backpropagate(X_batch, Y_batch, y_pred, W, b, layer_outputs):
 
 
 def update_weights_and_bias(layer_outputs, y_true, y_pred, W, b, learning_rate):
-    # do not use back propagation
+    """Used just for forward pass."""
 
     error = y_true - y_pred
     # Update weights for the output layer
@@ -108,13 +108,13 @@ def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learnin
         for X_batch, Y_batch in create_batches(train_X, train_Y, batch_size):
             y_pred, layer_outputs = forward_propagation(X_batch, W, b)      # Forward pass
 
-            W, b = update_weights_and_bias(layer_outputs, Y_batch, y_pred, W, b, learning_rate)
+            # W, b = update_weights_and_bias(layer_outputs, Y_batch, y_pred, W, b, learning_rate)     # Update weights and biases, just for forward pass
 
-            # dW, db = backpropagate(X_batch, Y_batch, y_pred, W, b, layer_outputs)       # Backpropagation
-            #
-            # for i in range(len(W)):     # Update weights and biases
-            #     W[i] -= learning_rate * dW[i]
-            #     b[i] -= learning_rate * db[i]
+            dW, db = backpropagate(X_batch, Y_batch, y_pred, W, b, layer_outputs)       # Backpropagation
+
+            for i in range(len(W)):     # Update weights and biases
+                W[i] -= learning_rate * dW[i]
+                b[i] -= learning_rate * db[i]
 
         print(f"Epoch {epoch + 1} completed.")
 
@@ -125,21 +125,20 @@ def compute_accuracy(X_test, Y_test, weights, biases):
     """Compute accuracy on the test set."""
 
     # Forward propagation through the network
-    a = X_test  # Start with input data
-    for W, b in zip(weights, biases):  # Iterate through each layer
-        z = np.dot(a, W) + b  # Compute the linear combination
-        if W.shape[1] == 10:  # Last layer (output layer uses softmax)
+    a = X_test
+    for W, b in zip(weights, biases):   # Iterate through the layers
+        z = np.dot(a, W) + b
+        if W.shape[1] == 10:  # last layer
             a = softmax(z)
-        else:  # Hidden layers use sigmoid activation
+        else:
             a = sigmoid(z)
 
-    # Convert predicted probabilities to class labels (argmax to get class index)
+    # Convert predicted probabilities to class labels
     predicted_labels = np.argmax(a, axis=1)
 
-    # Convert true labels (one-hot encoded) to class labels
+    # Convert true labels to class labels
     true_labels = np.argmax(Y_test, axis=1)
 
-    # Calculate accuracy (percentage of correct predictions)
     accuracy = np.mean(predicted_labels == true_labels) * 100
 
     return accuracy
@@ -164,7 +163,11 @@ def initialize_parameters(layer_sizes, scale=0.01):
     biases = []
 
     for i in range(1, len(layer_sizes)):
-        weights.append(np.random.randn(layer_sizes[i - 1], layer_sizes[i]) * scale)
+        # weights.append(np.random.randn(layer_sizes[i - 1], layer_sizes[i]) * scale)       # not so good
+
+        weight_stddev = np.sqrt(1 / layer_sizes[i - 1])
+        weights.append(np.random.randn(layer_sizes[i - 1], layer_sizes[i]) * weight_stddev)
+
         biases.append(np.zeros((1, layer_sizes[i])))
 
     return weights, biases
@@ -182,7 +185,7 @@ def main():
     print(f"Train data shape: {train_X.shape}, Train labels shape: {train_Y.shape}")
     print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
-    learning_rate = 0.001
+    learning_rate = 0.0005
     num_epochs = 50
     batch_size = 100
     layer_sizes = [784, 32, 16, 10]
