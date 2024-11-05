@@ -47,20 +47,39 @@ def sigmoid(z):
     z = np.clip(z, -4, 4)
     return 1 / (1 + np.exp(-z))
 
-def forward_propagation(X_batch, W, b):
+def apply_dropout(output, dropout_rate):
+    """Apply dropout to the output of a layer."""
+
+    if not (0 <= dropout_rate <= 1):
+        raise ValueError("dropout_rate must be between 0 and 1")
+
+    num_neurons = len(output)
+    num_to_drop = int(np.floor(num_neurons * dropout_rate))     # Number of neurons to drop
+
+    indices_to_drop = np.random.choice(num_neurons, num_to_drop, replace=False)     # Randomly select neurons to drop
+
+    # Create a copy of the output and set the selected indices to zero
+    output_with_dropout = output.copy()
+    output_with_dropout[indices_to_drop] = 0
+
+    return output_with_dropout
+
+def forward_propagation(X_batch, W, b, dropout_rate, training=True):
     """Performs a forward pass through the network."""
     layer_outputs = [X_batch]
     output = X_batch
 
-    # Apply sigmoid for hidden layers
     for i in range(len(W) - 1):
         z = np.dot(output, W[i]) + b[i]
-        output = sigmoid(z)
+        output = sigmoid(z)         # sigmoid for hidden layers
+
+        if training:
+            output = apply_dropout(output, dropout_rate)    # Apply dropout only during training
+
         layer_outputs.append(output)
 
-    # Apply softmax for the output layer
     z = np.dot(output, W[-1]) + b[-1]
-    output = softmax(z)
+    output = softmax(z)     # softmax for the output layer
     layer_outputs.append(output)
 
     return output, layer_outputs
@@ -70,32 +89,29 @@ def sigmoid_derivative(z):
     sig = sigmoid(z)
     return sig * (1 - sig)
 
-
-def backpropagate(X_batch, Y_batch, y_pred, W, b, layer_outputs):
+def backpropagate(Y_target, y_pred, W, b, layer_outputs):
     dW = [np.zeros_like(w) for w in W]
     db = [np.zeros_like(bi) for bi in b]
 
     # Output layer error (softmax + cross-entropy)
-    error = y_pred - Y_batch
-    dW[-1] = np.dot(layer_outputs[-2].T, error)
-    db[-1] = np.sum(error, axis=0)
+    error = y_pred - Y_target                       # δ = y - y_target
+    dW[-1] = np.dot(layer_outputs[-2].T, error)     # 𝜕C/𝜕W = y * δ
+    db[-1] = np.sum(error, axis=0)                  # 𝜕C/𝜕b = δ
 
     # Backpropagate through hidden layers
     for i in range(len(W) - 2, -1, -1):
-        error = np.dot(error, W[i + 1].T) * sigmoid_derivative(layer_outputs[i + 1])
-        dW[i] = np.dot(layer_outputs[i].T, error)
-        db[i] = np.sum(error, axis=0)
+        error = np.dot(error, W[i + 1].T) * sigmoid_derivative(layer_outputs[i + 1])    # δ = δ * W * σ'(z)
+        dW[i] = np.dot(layer_outputs[i].T, error)                                       # 𝜕C/𝜕W = y * δ
+        db[i] = np.sum(error, axis=0)                                                   # 𝜕C/𝜕b = δ
 
     return dW, db
 
 
 def update_weights_and_bias(layer_outputs, y_true, y_pred, W, b, learning_rate):
-    """Used just for forward pass."""
+    """Used just for forward pass when not using backpropagation."""
 
     error = y_true - y_pred
-    # Update weights for the output layer
     W[-1] += learning_rate * np.dot(layer_outputs[-2].T, error)  # Use the output from the last hidden layer
-    # Update biases for the output layer
     b[-1] += learning_rate * np.sum(error, axis=0)  # Sum across the batch
 
     return W, b
@@ -106,19 +122,18 @@ def shuffle_data(X, Y):
     np.random.shuffle(indices)
     return X[indices], Y[indices]
 
-def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learning_rate, test_X, test_Y):
+def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, batch_size, learning_rate, dropout_rate=0.5):
     W, b = initialize_parameters(layer_sizes)
 
     for epoch in range(num_epochs):
         train_X, train_Y = shuffle_data(train_X, train_Y)
 
         for X_batch, Y_batch in create_batches(train_X, train_Y, batch_size):
-            y_pred, layer_outputs = forward_propagation(X_batch, W, b)      # Forward pass
+            y_pred, layer_outputs = forward_propagation(X_batch, W, b, dropout_rate=dropout_rate, training=True)
 
-            # W, b = update_weights_and_bias(layer_outputs, Y_batch, y_pred, W, b, learning_rate)     # Update weights and biases, just for forward pass
+            # W, b = update_weights_and_bias(layer_outputs, Y_batch, y_pred, W, b, learning_rate)     # if only forward pass
 
-            dW, db = backpropagate(X_batch, Y_batch, y_pred, W, b, layer_outputs)       # Backpropagation
-
+            dW, db = backpropagate(Y_target=Y_batch, y_pred=y_pred, W=W, b=b, layer_outputs=layer_outputs)       # Backpropagation
             for i in range(len(W)):     # Update weights and biases
                 W[i] -= learning_rate * dW[i]
                 b[i] -= learning_rate * db[i]
@@ -126,7 +141,6 @@ def train_network(train_X, train_Y, layer_sizes, num_epochs, batch_size, learnin
         train_accuracy = compute_accuracy(train_X, train_Y, W, b)
         validation_accuracy = compute_accuracy(test_X, test_Y, W, b)
         print(f"Epoch {epoch + 1} completed. Training Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {validation_accuracy:.2f}%")
-
 
     return W, b
 
@@ -143,14 +157,10 @@ def compute_accuracy(X_test, Y_test, weights, biases):
         else:
             a = sigmoid(z)
 
-    # Convert predicted probabilities to class labels
-    predicted_labels = np.argmax(a, axis=1)
-
-    # Convert true labels to class labels
-    true_labels = np.argmax(Y_test, axis=1)
+    predicted_labels = np.argmax(a, axis=1)     # Predicted labels
+    true_labels = np.argmax(Y_test, axis=1)     # Convert one-hot encoded labels to class labels
 
     accuracy = np.mean(predicted_labels == true_labels) * 100
-
     return accuracy
 
 
@@ -196,21 +206,18 @@ def main():
     print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
     learning_rate = 0.001
-    num_epochs = 50
+    num_epochs = 1
     batch_size = 100
     layer_sizes = [784, 100, 10]
 
-    W, b = train_network(train_X=train_X, train_Y=train_Y, layer_sizes=layer_sizes,
-                        num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate,
-                        test_X=test_X, test_Y=test_Y
-                         )
+    W, b = train_network(train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y, layer_sizes=layer_sizes,
+                        num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate, dropout_rate=0)
 
     for i in range(len(W)):
         print(f"Weight shape: {W[i].shape}, Bias shape: {b[i].shape}")
 
     # test_accuracy = compute_accuracy(test_X, test_Y, W, b)
     # print(f"Test Accuracy: {test_accuracy:.2f}%")
-
 
 
 if __name__ == "__main__":
