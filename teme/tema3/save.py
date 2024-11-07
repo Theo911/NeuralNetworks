@@ -1,5 +1,6 @@
 import numpy as np
 from load_mnist_dataset import download_mnist
+from math import sqrt
 
 
 def load_mnist_dataset():
@@ -130,11 +131,23 @@ def shuffle_data(X, Y):
     np.random.shuffle(indices)
     return X[indices], Y[indices]
 
+
+def compute_loss(X, Y, W, b):
+    """Calculate the mean squared error (MSE) loss over the entire dataset."""
+    # Perform forward propagation to get predictions
+    y_pred, _ = forward_propagation(X, W, b, hidden_activation=sigmoid, output_activation=softmax, dropout_rate=0, training=False)
+
+    # Compute the loss
+    mse_loss = np.mean((y_pred - Y) ** 2)
+    return mse_loss
+
+
 def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, batch_size, initial_lr, patience, decay_factor,
                   hidden_activation, output_activation, loss_derivative, hidden_activation_derivative, dropout_rate=0.5):
     W, b = initialize_parameters(layer_sizes)
     learning_rate = initial_lr
-
+    best_loss = float('inf')
+    patience_counter = 0
 
     for epoch in range(num_epochs):
         train_X, train_Y = shuffle_data(train_X, train_Y)
@@ -151,11 +164,23 @@ def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, bat
                 W[i] -= learning_rate * dW[i]
                 b[i] -= learning_rate * db[i]
 
-        # every 10 epochs, compute the accuracy on the test set
-        if epoch % 10 == 0:
-            train_accuracy = compute_accuracy(train_X, train_Y, W, b)
-            validation_accuracy = compute_accuracy(test_X, test_Y, W, b)
-            print(f"Epoch {epoch + 1} completed. Training Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {validation_accuracy:.2f}%")
+        train_accuracy = compute_accuracy(train_X, train_Y, W, b)
+        validation_accuracy = compute_accuracy(test_X, test_Y, W, b)
+        print(f"Epoch {epoch + 1} completed. Training Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {validation_accuracy:.2f}%")
+        #
+        # train_loss = compute_loss(train_X, train_Y, W, b)
+        # # Check if there's improvement in validation loss
+        # if train_loss < best_loss:
+        #     best_loss = train_loss
+        #     patience_counter = 0
+        # else:
+        #     patience_counter += 1
+        #
+        # # Adjust learning rate if metrics plateau
+        # if patience_counter >= patience:
+        #     learning_rate *= decay_factor
+        #     patience_counter = 0  # Reset counter after decay
+        #     print(f"Learning rate reduced to {learning_rate:.5f}")
 
     return W, b
 
@@ -178,6 +203,7 @@ def compute_accuracy(X_test, Y_test, weights, biases):
     accuracy = np.mean(predicted_labels == true_labels) * 100
     return accuracy
 
+
 def initialize_parameters(layer_sizes):
     """
     Initializes weights and biases using Xavier initialization with a uniform distribution.
@@ -186,6 +212,7 @@ def initialize_parameters(layer_sizes):
     - layer_sizes: List of integers, where each element represents the number of units in a layer.
                    For example, [784, 128, 64, 10] represents a network with input size 784,
                    two hidden layers with sizes 128 and 64, and output size 10.
+    - scale: Float, scaling factor for random weight initialization (default is 0.01).
 
     Returns:
     - weights: List of numpy arrays representing weights for each layer.
@@ -221,7 +248,7 @@ def main():
     print(f"Train data shape: {train_X.shape}, Train labels shape: {train_Y.shape}")
     print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
-    learning_rate = 0.0008
+    learning_rate = 0.0001
     num_epochs = 150
     batch_size = 64
     layer_sizes = [784, 100, 10]
