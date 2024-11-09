@@ -1,0 +1,35 @@
+Train data shape: (60000, 784), Train labels shape: (60000, 10)
+Test data shape: (10000, 784), Test labels shape: (10000, 10)
+Epoch 1 completed. Training Accuracy: 88.83%, Validation Accuracy: 89.26%
+Epoch 11 completed. Training Accuracy: 92.23%, Validation Accuracy: 92.36%
+Epoch 21 completed. Training Accuracy: 92.83%, Validation Accuracy: 92.59%
+Epoch 31 completed. Training Accuracy: 93.31%, Validation Accuracy: 92.93%
+Epoch 41 completed. Training Accuracy: 93.70%, Validation Accuracy: 92.95%
+Epoch 51 completed. Training Accuracy: 93.96%, Validation Accuracy: 93.21%
+Epoch 61 completed. Training Accuracy: 94.23%, Validation Accuracy: 93.33%
+Epoch 71 completed. Training Accuracy: 94.48%, Validation Accuracy: 93.59%
+Epoch 81 completed. Training Accuracy: 94.84%, Validation Accuracy: 93.86%
+Epoch 91 completed. Training Accuracy: 95.08%, Validation Accuracy: 94.13%
+Epoch 101 completed. Training Accuracy: 95.21%, Validation Accuracy: 94.10%
+Learning rate decayed to 0.00090
+Epoch 111 completed. Training Accuracy: 95.37%, Validation Accuracy: 94.29%
+Epoch 121 completed. Training Accuracy: 95.45%, Validation Accuracy: 94.35%
+Epoch 131 completed. Training Accuracy: 95.58%, Validation Accuracy: 94.29%
+Learning rate decayed to 0.00081
+Epoch 141 completed. Training Accuracy: 95.54%, Validation Accuracy: 94.22%
+Epoch 151 completed. Training Accuracy: 95.64%, Validation Accuracy: 94.33%
+Epoch 161 completed. Training Accuracy: 95.77%, Validation Accuracy: 94.36%
+Epoch 171 completed. Training Accuracy: 95.87%, Validation Accuracy: 94.55%
+Epoch 181 completed. Training Accuracy: 95.88%, Validation Accuracy: 94.42%
+Epoch 191 completed. Training Accuracy: 95.95%, Validation Accuracy: 94.51%
+Epoch 201 completed. Training Accuracy: 95.95%, Validation Accuracy: 94.56%
+Epoch 211 completed. Training Accuracy: 96.03%, Validation Accuracy: 94.55%
+Epoch 221 completed. Training Accuracy: 96.07%, Validation Accuracy: 94.61%
+Epoch 231 completed. Training Accuracy: 96.25%, Validation Accuracy: 94.67%
+Epoch 241 completed. Training Accuracy: 96.25%, Validation Accuracy: 94.80%
+Epoch 251 completed. Training Accuracy: 96.33%, Validation Accuracy: 94.82%
+Epoch 261 completed. Training Accuracy: 96.28%, Validation Accuracy: 94.77%
+Epoch 271 completed. Training Accuracy: 96.36%, Validation Accuracy: 94.88%
+Epoch 281 completed. Training Accuracy: 96.34%, Validation Accuracy: 94.98%
+Epoch 291 completed. Training Accuracy: 96.31%, Validation Accuracy: 94.99%
+Epoch 301 completed. Training Accuracy: 96.34%, Validation Accuracy: 95.00%

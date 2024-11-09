@@ -77,7 +77,7 @@ def forward_propagation(X_batch, W, b, hidden_activation, output_activation, dro
         output = hidden_activation(z)
 
         if training:
-            output = apply_dropout(output, dropout_rate)    # Apply dropout only during training
+            output = apply_dropout(output, dropout_rate)    # dropout only during training
 
         layer_outputs.append(output)
 
@@ -101,12 +101,12 @@ def backpropagate(Y_target, y_pred, W, b, layer_outputs, loss_derivative, hidden
     dW = [np.zeros_like(w) for w in W]
     db = [np.zeros_like(bi) for bi in b]
 
-    # Output layer error (softmax + cross-entropy)
+    # output layer error (softmax + cross-entropy)
     error = loss_derivative(y_pred, Y_target)           # δ = y - y_target
     dW[-1] = np.dot(layer_outputs[-2].T, error)         # 𝜕C/𝜕W = y * δ
     db[-1] = np.sum(error, axis=0)                      # 𝜕C/𝜕b = δ
 
-    # Backpropagate through hidden layers
+    # backpropagation through hidden layers
     for i in range(len(W) - 2, -1, -1):
         error = np.dot(error, W[i + 1].T) * hidden_activation_derivative(layer_outputs[i + 1])      # δ = δ * W * σ'(z)
         dW[i] = np.dot(layer_outputs[i].T, error)                                                   # 𝜕C/𝜕W = y * δ
@@ -119,8 +119,8 @@ def update_weights_and_bias(layer_outputs, y_true, y_pred, W, b, learning_rate, 
     """Used just for forward pass when not using backpropagation."""
 
     error = loss_derivative(y_true, y_pred)
-    W[-1] += learning_rate * np.dot(layer_outputs[-2].T, error)  # Use the output from the last hidden layer
-    b[-1] += learning_rate * np.sum(error, axis=0)  # Sum across the batch
+    W[-1] += learning_rate * np.dot(layer_outputs[-2].T, error)  # use the output from the last hidden layer
+    b[-1] += learning_rate * np.sum(error, axis=0)              # sum across the batch
 
     return W, b
 
@@ -130,17 +130,18 @@ def shuffle_data(X, Y):
     np.random.shuffle(indices)
     return X[indices], Y[indices]
 
-def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, batch_size, initial_lr, patience, decay_factor,
-                  hidden_activation, output_activation, loss_derivative, hidden_activation_derivative, dropout_rate=0.5):
+def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, batch_size, initial_lr,
+                  hidden_activation, output_activation, loss_derivative, hidden_activation_derivative,
+                  dropout_rate, decay_factor):
     W, b = initialize_parameters(layer_sizes)
     learning_rate = initial_lr
-
+    previous_validation_accuracy = 0
 
     for epoch in range(num_epochs):
         train_X, train_Y = shuffle_data(train_X, train_Y)
 
         for X_batch, Y_batch in create_batches(train_X, train_Y, batch_size):
-            y_pred, layer_outputs = forward_propagation(X_batch, W, b, hidden_activation, output_activation, dropout_rate=dropout_rate, training=True)
+            y_pred, layer_outputs = forward_propagation(X_batch, W, b, hidden_activation, output_activation, dropout_rate=dropout_rate, training=False)
 
             # W, b = update_weights_and_bias(layer_outputs, Y_batch, y_pred, W, b, learning_rate, loss_derivative)     # if only forward pass
 
@@ -151,36 +152,36 @@ def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, bat
                 W[i] -= learning_rate * dW[i]
                 b[i] -= learning_rate * db[i]
 
-        # every 10 epochs, compute the accuracy on the test set
         if epoch % 10 == 0:
-            train_accuracy = compute_accuracy(train_X, train_Y, W, b)
-            validation_accuracy = compute_accuracy(test_X, test_Y, W, b)
+            train_accuracy = compute_accuracy(train_X, train_Y, W, b, hidden_activation, output_activation, dropout_rate=dropout_rate, training=False)
+            validation_accuracy = compute_accuracy(test_X, test_Y, W, b, hidden_activation, output_activation, dropout_rate=0, training=False)
             print(f"Epoch {epoch + 1} completed. Training Accuracy: {train_accuracy:.2f}%, Validation Accuracy: {validation_accuracy:.2f}%")
+
+            if validation_accuracy < previous_validation_accuracy:
+                if learning_rate * decay_factor < 0.0008:
+                    learning_rate = 0.0008          # minimum learning rate
+                else:
+                    learning_rate *= decay_factor
+                    print(f"Learning rate decayed to {learning_rate:.5f}")
+
+            previous_validation_accuracy = validation_accuracy
 
     return W, b
 
-
-def compute_accuracy(X_test, Y_test, weights, biases):
+def compute_accuracy(X_test, Y_test, weights, biases, hidden_activation, output_activation, dropout_rate = 0, training=False):
     """Compute accuracy on the test set."""
 
-    # Forward propagation through the network
-    a = X_test
-    for W, b in zip(weights, biases):   # Iterate through the layers
-        z = np.dot(a, W) + b
-        if W.shape[1] == 10:  # last layer
-            a = softmax(z)
-        else:
-            a = sigmoid(z)
+    y_pred, layer_outputs = forward_propagation(X_test, weights, biases, hidden_activation,output_activation, dropout_rate, training)
 
-    predicted_labels = np.argmax(a, axis=1)     # Predicted labels
-    true_labels = np.argmax(Y_test, axis=1)     # Convert one-hot encoded labels to class labels
+    predicted_labels = np.argmax(y_pred, axis=1)        # Predicted labels
+    true_labels = np.argmax(Y_test, axis=1)             # Convert one-hot encoded labels to class labels
 
     accuracy = np.mean(predicted_labels == true_labels) * 100
     return accuracy
 
 def initialize_parameters(layer_sizes):
     """
-    Initializes weights and biases using Xavier initialization with a uniform distribution.
+    Initializes weights and biases using my adaptation of Xavier initialization.
 
     Parameters:
     - layer_sizes: List of integers, where each element represents the number of units in a layer.
@@ -196,13 +197,8 @@ def initialize_parameters(layer_sizes):
     biases = []
 
     for i in range(1, len(layer_sizes)):
-        # weights.append(np.random.randn(layer_sizes[i - 1], layer_sizes[i]) * scale)       # not so good
-
-        weight_stddev = np.sqrt(1 / layer_sizes[i - 1])
+        weight_stddev = np.sqrt(64 / layer_sizes[i - 1])
         weights.append(np.random.randn(layer_sizes[i - 1], layer_sizes[i]) * weight_stddev)
-
-        # limit = sqrt(1 / layer_sizes[i - 1])
-        # weights.append(np.random.uniform(-limit, limit, (layer_sizes[i - 1], layer_sizes[i])))
 
         biases.append(np.zeros((1, layer_sizes[i])))
 
@@ -221,19 +217,20 @@ def main():
     print(f"Train data shape: {train_X.shape}, Train labels shape: {train_Y.shape}")
     print(f"Test data shape: {test_X.shape}, Test labels shape: {test_Y.shape}")
 
-    learning_rate = 0.0008
-    num_epochs = 150
-    batch_size = 64
+    # learning_rate = 0.0008
+    learning_rate = 0.001
+    num_epochs = 301
+    batch_size = 128
     layer_sizes = [784, 100, 10]
 
     W, b = train_network(train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y, layer_sizes=layer_sizes,
                         num_epochs=num_epochs, batch_size=batch_size,
-                        initial_lr=learning_rate, patience=3, decay_factor=0.8,
+                        initial_lr=learning_rate,
                         hidden_activation=sigmoid,
                         output_activation=softmax,
                         loss_derivative=cross_entropy_loss_derivative,
                         hidden_activation_derivative=sigmoid_derivative,
-                        dropout_rate=0)
+                        dropout_rate=0.2, decay_factor=0.9)
 
     # for i in range(len(W)):
     #     print(f"Weight shape: {W[i].shape}, Bias shape: {b[i].shape}")
