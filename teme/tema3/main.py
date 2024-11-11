@@ -171,7 +171,7 @@ def train_network(train_X, train_Y, test_X, test_Y, layer_sizes, num_epochs, bat
 def compute_accuracy(X_test, Y_test, weights, biases, hidden_activation, output_activation, dropout_rate = 0, training=False):
     """Compute accuracy on the test set."""
 
-    y_pred, layer_outputs = forward_propagation(X_test, weights, biases, hidden_activation,output_activation, dropout_rate, training)
+    y_pred, layer_outputs = forward_propagation(X_test, weights, biases, hidden_activation, output_activation, dropout_rate, training)
 
     predicted_labels = np.argmax(y_pred, axis=1)        # Predicted labels
     true_labels = np.argmax(Y_test, axis=1)             # Convert one-hot encoded labels to class labels
@@ -230,7 +230,7 @@ def main():
                         output_activation=softmax,
                         loss_derivative=cross_entropy_loss_derivative,
                         hidden_activation_derivative=sigmoid_derivative,
-                        dropout_rate=0.2, decay_factor=0.9)
+                        dropout_rate=0.1, decay_factor=0.9)
 
     # for i in range(len(W)):
     #     print(f"Weight shape: {W[i].shape}, Bias shape: {b[i].shape}")
