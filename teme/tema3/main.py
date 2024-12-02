@@ -98,6 +98,8 @@ def cross_entropy_loss_derivative(y_pred, y_true):
     return y_pred - y_true
 
 def backpropagate(Y_target, y_pred, W, b, layer_outputs, loss_derivative, hidden_activation_derivative):
+    """Performs backpropagation through the network. Returns the gradients of the weights and biases."""
+
     dW = [np.zeros_like(w) for w in W]
     db = [np.zeros_like(bi) for bi in b]
 
@@ -223,6 +225,10 @@ def main():
     batch_size = 128
     layer_sizes = [784, 100, 10]
 
+    # measure time
+    import time
+    start_time = time.time()
+
     W, b = train_network(train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y, layer_sizes=layer_sizes,
                         num_epochs=num_epochs, batch_size=batch_size,
                         initial_lr=learning_rate,
@@ -231,6 +237,8 @@ def main():
                         loss_derivative=cross_entropy_loss_derivative,
                         hidden_activation_derivative=sigmoid_derivative,
                         dropout_rate=0.1, decay_factor=0.9)
+
+    print(f"Training time: {time.time() - start_time:.2f} seconds")
 
     # for i in range(len(W)):
     #     print(f"Weight shape: {W[i].shape}, Bias shape: {b[i].shape}")
